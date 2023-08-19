@@ -29,7 +29,8 @@ void print_usage(char** argv)
     printf("Usage : %s (args...)\n\
     args :\n\
     \t-o <output> : sets the output executable to <output>\n\
-    \t<source file> : sets a source file to <source file>\n", argv[0]);
+    \t<source file> : sets a source file to <source file>\n\
+    \t-v : enable verbose\n", argv[0]);
 }
 
 parsed_main_args parse_main_args(int argc, char** argv)
@@ -77,6 +78,11 @@ int main(int argc, char** argv)
     char *assemble_command;
     
     pma = parse_main_args(argc, argv);
+
+    if(pma.source == NULL || pma.output == NULL)
+    {
+        exit(EXIT_SUCCESS);
+    }
 
     compile_aal_file(pma.source, &source_name, &asm_file_name, pma.verbose, TRUE);
     if(aalc_state->macros != NULL)
