@@ -1,0 +1,343 @@
+@set SYS_EXIT 0x1
+@set SYS_FORK 0x2
+@set SYS_READ 0x3
+@set SYS_WRITE 0x4
+@set SYS_OPEN 0x5
+
+@set PERM_R 0x4
+@set PERM_W 0x2
+@set PERM_E 0x1
+@set PERM_RW 0x6
+@set PERM_WE 0x3
+@set PERM_RE 0x5
+@set PERM_RWE 0x7
+
+@set STDIN 0x0
+@set STDOUT 0x1
+@set STDERR 0x2
+
+
+// reverse the string str in place
+
+func reverse_string(pointer str dword len);
+func reverse_string:
+{
+	[
+		byte c;
+		pointer left;
+		pointer right;
+	]
+	left = [str];
+	right = [str + len - 1]; 
+	do
+	{
+		c = [b$right];
+		
+		b$right = [b$left];
+		
+		b$left = [c];
+		
+		right-;
+		left+;
+	}
+	loop [left < right]
+}
+	
+
+
+// converts unsigned dword (32-bit) val to string and store result in buf
+
+func dword_as_string(dword val pointer buf);
+func dword_as_string:
+{
+	[
+		dword q;
+		dword r;
+		byte c;
+		pointer str;
+	]
+	str = [buf];
+	q = [val];
+
+	test [q == 0]
+	{
+		b$buf = '0';
+        return [1];
+	}
+		
+	do
+	{
+		r = [q % 10];
+		q = [q / 10];
+		c = [r + 48];
+			
+		b$str = [c];
+
+		str+;
+	}
+	loop [q != 0]
+
+	reverse_string([buf] [str-buf]);
+
+	return [str-buf];
+}
+// converts unsigned dword (32-bit) val to string as hex and store result in buf
+
+func dword_as_string_hex(dword val pointer buf);
+func dword_as_string_hex:
+{
+	[
+		dword q;
+		dword r;
+		byte c;
+		pointer str;
+	]
+	str = [buf];
+	q = [val];
+
+	test [q == 0]
+	{
+		b$buf = '0';
+	    return [1];
+	}
+	
+	do
+	{
+		r = [q % 16];
+		q = [q / 16];
+
+		test [r < 10]
+			c = [r + 48];				
+		fail
+			c = [r + 87];
+		end
+
+		b$str = [c];
+
+
+		str+;
+	}
+	loop [q != 0]
+
+	reverse_string([buf] [str-buf]);
+
+	return [str-buf];
+}
+	
+
+
+// get the len that make all the bytes from str until a null-byte
+
+func strlen_before_nullbyte(pointer str):
+func strlen_before_nullbyte:
+{
+	[
+		pointer buf;
+	]
+	buf = [str];
+
+	do
+	{
+		str+;
+	}
+	loop [b$str != 0]
+
+	return [str-buf];
+}
+	
+
+
+	
+
+// print the unsigned dword val as integer value
+
+func print_dword(dword val);
+func print_dword:
+{
+	[
+		dword len;
+		byte str<16>;
+	]
+	len = [dword_as_string([val] [&str])];
+
+	syscall SYS_WRITE STDOUT [&str] [len];
+}
+
+func print_str(pointer str):
+func print_str:
+{
+	[
+		dword len;
+	]
+	len = [strlen_before_nullbyte([str])];
+
+	syscall SYS_WRITE STDOUT [str] [len];
+}
+	
+
+func print_dword_hex(dword val);
+func print_dword_hex:
+{
+	[
+		dword len;
+		byte str<16>;
+	]
+	len = [dword_as_string_hex([val] [&str])];
+	print_str("0x");
+	syscall SYS_WRITE STDOUT [&str] [len];
+}
+	
+
+
+func dword_pow(dword a dword exp)
+func dword_pow:
+{
+	[
+		dword result;
+		dword i;
+	]
+	result = 1;
+	i = 0;
+	do
+	{
+		result = [result * a];
+		i+;
+	}
+	loop [i < exp]
+
+	// print_dword([result]);
+
+	return [result];
+}
+	
+
+// print the null-terminated string str
+
+func string_to_dword(pointer str);
+func string_to_dword:
+{
+	[
+		dword result;
+		dword len;
+		dword digit;
+		dword pow;
+		dword i;
+	]
+	i = 0,
+	result = 0;
+	len = [strlen_before_nullbyte([str])];
+	do
+	{
+		digit = [b$str - 48];
+		pow = [dword_pow(10 [len-i-1])];
+		digit = [digit * pow];
+		result = [result + digit];
+
+		str+;
+		i+;
+	}
+	loop [i < len]
+	
+	return [result];
+}
+
+
+
+// copy len bytes from src to dst
+
+func copybuf(pointer dst pointer src dword len)
+func copybuf:
+{
+	do
+	{
+		b$dst = [b$src];
+		
+		src+;
+		dst+;
+
+		len-;
+	}
+	loop [len]
+}
+// copy dst to src
+
+func copystring(pointer dst pointer src)
+func copystring:
+{
+	[
+		dword len;
+	]
+	len = [strlen_before_nullbyte([src])];
+
+	copybuf([dst] [src] [len]);
+}
+
+// compare len bytes from mema and memb 
+// returns 1 if equal, returns 2 if not equal
+
+func memequal(pointer mema pointer memb dword len)
+func memequal:
+{
+	do
+	{
+		test [b$mema == b$memb]
+		fail
+			return [0];
+		end
+		len-;
+	}
+	loop [len]
+	
+	
+	return [1];
+}
+// compare stra and strb, are they equal
+
+func strequal(pointer stra pointer strb);
+func strequal:
+{
+	[
+		dword stra_len;
+		dword strb_len;
+	]
+	stra_len = [strlen_before_nullbyte([stra])];
+
+	strb_len = [strlen_before_nullbyte([strb])];
+
+	test [stra_len != strb_len]
+	{
+		return [0];
+	}
+	
+	return [memequal([stra] [strb] [strb_len])];
+}
+func read_str(pointer dst);
+func read_str:
+{
+	[
+		byte c;
+	]
+	do
+	{
+		// read one character from stdin
+		syscall SYS_READ STDIN [&c] 1;
+		test [c == 10]
+		{
+			b$dst = 0;
+			return;
+		}
+		b$dst = [c];
+		dst+;
+	}
+	loop [1]
+}
+func read_dword();
+func read_dword:
+{
+	[
+		byte str<16>;
+	]
+	
+	read_str([&str]);
+	return [string_to_dword([&str])];
+}

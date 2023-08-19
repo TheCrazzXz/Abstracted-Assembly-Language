@@ -1,0 +1,3 @@
+ABSTRACTED ASSEMBLY LANGUAGE (v1.0)
+
+Author : TheCrazzXz

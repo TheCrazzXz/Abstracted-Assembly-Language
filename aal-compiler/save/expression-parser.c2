@@ -1,0 +1,198 @@
+#include "expression-parser.h"
+#include "source-parser.h"
+#include "compiler.h"
+#include "compiler-operations.h"
+#include <stdlib.h>
+#include "compiler-logging.h"
+#include "bintree.h"
+compiler_value_data source_parse_expression_core(char** expression, size_t reg_number, Bool direct)
+{
+    size_t expression_len;
+
+    expr_data current_data;
+    expr_data final_data;
+    char* var_asm;
+    aal_data_type type;
+    size_t len;
+    ssize_t final_sum = 0;
+    aal_operation op = AAL_OPERATION_NOT_SPECIFIC;
+    aal_operation temp_op = AAL_OPERATION_NOT_SPECIFIC;
+    size_t fp_save = ftell(aalc_state->asm_file);
+    Bool only_numbers = TRUE;
+    char* byte_reg;
+    compiler_value_data value_data;
+    bt_node* tree;
+    bt_node* node;
+
+    //expression_len = strlen(*expression);
+    value_data.register_byte = FALSE;
+    value_data.expr.type = EXPR_DATA_TYPE_NONE;
+
+    printf("expression : %s\n", *expression);
+
+    if(**expression != '[' && !direct)
+    {
+        value_data.expr = source_read_next_data(expression);
+        if(value_data.expr.type == EXPR_DATA_TYPE_NONE)
+        {
+            aalc_error("Expression has error");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+
+            value_data.type = COMPILER_VALUE_TYPE_EXPRESSION;
+            if(value_data.expr.type == EXPR_DATA_TYPE_STRING_LITERRAL)
+            {
+                ALLOC_NEW_ELEMENT_FOR_VECTOR(aalc_state->data_seg_data, aalc_state->data_seg_data_len, sizeof(expr_data));
+                value_data.expr.name = data_seg_idx_to_name(aalc_state->data_seg_data_len - 1);
+                aalc_state->data_seg_data[aalc_state->data_seg_data_len - 1] = value_data.expr;
+                value_data.expr.type = EXPR_DATA_TYPE_DATA_VAR_NAME;
+                value_data.expr.data = value_data.expr.name;
+            }
+            else if(value_data.expr.type == EXPR_DATA_TYPE_STRING_CHARACTER)
+            {
+                value_data.expr.type = EXPR_DATA_TYPE_DATA_TYPE;
+                value_data.expr.data_type = AAL_DATA_TYPE_BYTE;
+            }
+            return value_data;
+        }
+    }
+
+    if(!direct)
+    {
+        (*expression)++;
+    }
+    
+    for(; ;)
+    {
+        
+        current_data = source_read_next_data(expression);
+        if(current_data.type != EXPR_DATA_TYPE_NONE)
+        {
+            if(current_data.type != EXPR_DATA_TYPE_DATA_TYPE || current_data.data_type != AAL_DATA_TYPE_DWORD)
+            {
+                only_numbers = FALSE;
+            }
+
+            if(current_data.type == EXPR_DATA_TYPE_DATA_TYPE && current_data.data_type == AAL_DATA_TYPE_DWORD)
+            {
+                var_asm = malloc(16);
+                sprintf(var_asm, "%u", *(dword_t*)current_data.data);
+                register_operation(op, register_to_use, var_asm, "dword");
+                
+                if(op == AAL_OPERATION_ADDITION)
+                {
+                    final_sum += *(dword_t*)current_data.data;
+                }
+                else if(op == AAL_OPERATION_SUBTRACTION)
+                {
+                    final_sum -= *(dword_t*)current_data.data;
+                }
+                else if(op == AAL_OPERATION_MULTIPLICATION)
+                {
+                    final_sum *= *(dword_t*)current_data.data;
+                }
+                else if(op == AAL_OPERATION_DIVISION)
+                {
+                    final_sum /= *(dword_t*)current_data.data;
+                }
+                if(op == AAL_OPERATION_NOT_SPECIFIC)
+                {
+                    final_sum = *(dword_t*)current_data.data;
+                }
+                
+                op = AAL_OPERATION_NOT_SPECIFIC;
+                free(var_asm);
+            }
+            
+        }
+        else
+        {
+            type = dereference_variable(expression, &var_asm, reg_number);
+            if(var_asm != NULL)
+            {
+                only_numbers = FALSE;
+                /*if(type == AAL_DATA_TYPE_DWORD)
+                {
+                    compiler_set_register("eax", var_asm);
+                }
+                else if(type == AAL_DATA_TYPE_BYTE)
+                {
+                    compiler_set_register_byte("al", var_asm);
+                }*/
+                if(type == AAL_DATA_TYPE_DWORD)
+                {
+                    register_operation(op, register_to_use, var_asm, "dword");
+                }
+                else if(type == AAL_DATA_TYPE_BYTE)
+                {
+                    
+                    byte_reg = reg_number_to_byte_reg(reg_number, 0);
+                    register_operation(op, byte_reg, var_asm, "byte");
+                    value_data.register_byte = TRUE;
+                    free(byte_reg);
+                }
+                
+                
+                op = AAL_OPERATION_NOT_SPECIFIC;
+                free(var_asm);
+            }
+            else
+            {
+                temp_op = character_to_operation(*expression);
+                if(temp_op != AAL_OPERATION_NOT_SPECIFIC)
+                {
+                    op = temp_op;
+                }
+                else
+                {
+                    if(**expression == ' ' || **expression == '\t')
+                    {
+
+                    }
+                    else if(strncmp(*expression, "==", 2) == 0)
+                    {
+                        *expression = offsetptr_fd(*expression, 2, char);
+                        source_parse_expression_core(expression, reg_number+1, TRUE);
+                        // register_operation(AAL_OPERATION_SUBTRACTION, "eax", "ebx", "dword");
+                        value_data.expr.type = EXPR_DATA_TYPE_EQUAL_COMPARAISON;
+                        continue;
+                    }
+                    else if(**expression == ']')
+                    {
+                        /* TO DO : ADD OPTIMISATION WITH FINAL SUM IF ONLY NUMBERS */
+                        
+                        // printf("final sum = %ld", final_sum);
+                        if(!direct)
+                        {
+                            (*expression)++;
+                        }
+                        
+                        break;
+                    }
+                    else if(**expression == '\0')
+                    {
+                        aalc_error("Unterminated expression");
+                        exit(EXIT_FAILURE);
+                    }
+                    else
+                    {
+                        aalc_error("Unknown character for expression : '%c'", **expression);
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                (*expression)++;
+            }
+        }
+        
+    }
+    value_data.type = COMPILER_VALUE_TYPE_REGISTER;
+    value_data.register_number = reg_number;
+    return value_data;
+}
+
+compiler_value_data source_parse_expression(char **expression)
+{
+    return source_parse_expression_core(expression, 0, FALSE);
+}

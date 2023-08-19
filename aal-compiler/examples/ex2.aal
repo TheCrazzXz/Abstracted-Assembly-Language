@@ -1,0 +1,74 @@
+@include_file "aal/libaal.aal"
+
+func is_prime(dword num);
+func is_prime:
+{
+	[
+		dword i;
+	]
+
+	test [num < 2]
+	{
+		return [0];
+	}
+
+	
+	i = 2;
+	// loop for all numbers in [0 to num[
+
+	do
+	{
+		test [num % i == 0]
+			return [0];
+		end
+		i+;
+	}
+	loop [i < num]
+	return [1];
+}
+
+// get the number of prime numbers between [min and max]
+
+func get_nprime_range(dword min dword max)
+func get_nprime_range:
+{
+	[
+		dword nprimes;
+	]
+	nprimes = 0;
+	do
+	{
+		test [is_prime([max])]
+		{
+			nprimes+;
+		}
+		max-;
+	}
+	loop [max + 1 > min]
+	return [nprimes];
+}
+func entry();
+func entry:
+{
+	[
+		dword min;
+		dword max;
+		dword nprimes;		
+	]
+	print_str("PRIME RANGE SEARCHER 3000\nThis program will search with a very fast algorithm how many prime numbers (integers that can't be divided except by 1 or by themselves) in a certain range\n");
+	print_str("Enter min number range : ");
+	
+	min = [read_dword()];
+	
+	print_str("Enter max number range : ");
+	
+	max = [read_dword()];
+	nprimes = [get_nprime_range([min] [max])];
+	print_str("There are ");
+	print_dword([nprimes]);
+	print_str(" prime numbers in range [");
+	print_dword([min]);
+	print_str(" - ");
+	print_dword([max]);
+	print_str("]\n");
+}

@@ -1,0 +1,26 @@
+@include_file "aal/libaal.aal"
+
+///
+	To hex converter
+	Argument : number
+///
+
+func entry(dword argc pointer prog_name pointer number_str);
+func entry:
+{
+	dword n;
+	byte str<16>;
+	
+	test [argc < 2]
+	{
+		print_str("Error : Usage : ");
+		print_str([prog_name]);
+		print_str(" <number>\n");
+	}
+	fail
+	{
+		n = [string_to_dword([number_str])];
+		print_dword_hex([n]);
+		print_str("\n");
+	}
+}

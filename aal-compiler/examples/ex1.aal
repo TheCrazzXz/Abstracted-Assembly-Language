@@ -1,0 +1,30 @@
+@include_file "aal/libaal.aal"
+
+func entry(dword argc pointer program_name pointer pass);
+func entry:
+{
+	[
+		dword password_correct;
+		dword len;
+		byte str<16>;
+	]
+
+	copystring([&str] "password");
+
+	test [argc == 2]
+	{
+		password_correct = [strequal([pass] [&str])];
+		test [password_correct == 1]
+		{
+			print_str("Password is correct\n");
+		}
+		fail
+		{
+			print_str("Password is incorrect\n");
+		}
+	}
+	fail
+	{
+		print_str("Error : Required one argument : password\n");
+	}
+}

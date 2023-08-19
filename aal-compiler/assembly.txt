@@ -1,0 +1,7 @@
+Assemble to 32 bits :
+nasm -f elf32 -o <filename>.o <filename>.asm
+ld -m elf_i386 -o <filename> <filename>.o
+
+Assemble to 64 bits :
+nasm -f elf64 -o <filename>.o <filename>.asm
+ld -o <filename> <filename>.o

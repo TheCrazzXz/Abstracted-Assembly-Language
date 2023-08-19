@@ -1,0 +1,3 @@
+sub esp, <bytes for arguments>
+call function
+add esp, <bytes for arguments>

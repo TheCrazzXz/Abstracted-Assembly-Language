@@ -1,0 +1,42 @@
+@include_file "aal/libaal.aal"
+
+
+func entry(dword argc pointer prog_name pointer number_str);
+func entry:
+{
+	pointer ptr;
+	dword a;
+	dword b;
+	dword result;
+
+	a = 0;
+	b = 0;
+
+	// a = 0 and b = 0
+	result = [a+b];
+
+	print_dword([result]);
+
+	// point ptr to the a
+	ptr = [&a];
+
+	// dereference the pointer as dword then get the value of the pointed dword variable, then a
+	result = [d$ptr];
+
+	// now result is equal to a, then 0
+
+	// point ptr to the b
+	ptr = [&b];
+
+	// dereference the pointer as dword then get the value of the pointed dword variable, then b and set it to value
+	d$ptr = 589;
+
+	// now b is set to 589
+
+	// a = 0 and b = 589, we've indirectly changed the value of b
+	result = [a+b];
+
+	// now result is equal to 589
+	
+	print_dword([result]);
+}
